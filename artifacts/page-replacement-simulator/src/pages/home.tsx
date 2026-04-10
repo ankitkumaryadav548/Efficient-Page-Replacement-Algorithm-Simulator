@@ -8,18 +8,42 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Activity, BarChart3, Database } from "lucide-react";
+import { Loader2, Play, Cpu, GitBranch, Zap, Info } from "lucide-react";
 import { SimulationResults } from "@/components/simulation-results";
 
 const formSchema = z.object({
   referenceString: z.string().min(1, "Reference string is required").regex(/^(\d+\s)*\d+$/, "Must be space-separated numbers"),
-  frames: z.coerce.number().min(1).max(20),
+  frames: z.coerce.number().min(1, "Min 1 frame").max(20, "Max 20 frames"),
   algorithm: z.enum(["FIFO", "LRU", "Optimal", "ALL"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+const ALGORITHMS = [
+  { value: "FIFO", label: "FIFO", sublabel: "First-In, First-Out" },
+  { value: "LRU",  label: "LRU",  sublabel: "Least Recently Used" },
+  { value: "Optimal", label: "Optimal", sublabel: "Bélády's Algorithm" },
+  { value: "ALL",  label: "Compare All", sublabel: "FIFO + LRU + Optimal" },
+];
+
+const ALGO_INFO = [
+  {
+    icon: <GitBranch className="w-4 h-4" />,
+    name: "FIFO",
+    desc: "Evicts the oldest page. Simple but can cause Bélády's anomaly — more frames may yield more faults.",
+  },
+  {
+    icon: <Cpu className="w-4 h-4" />,
+    name: "LRU",
+    desc: "Evicts the page unused for the longest time. A strong practical heuristic with no anomaly.",
+  },
+  {
+    icon: <Zap className="w-4 h-4" />,
+    name: "Optimal",
+    desc: "Evicts the page needed farthest in the future. Theoretically perfect — impossible in real systems.",
+  },
+];
 
 export default function Home() {
   const { toast } = useToast();
@@ -42,16 +66,12 @@ export default function Home() {
       {
         onSuccess: (response) => {
           setResults(response);
-          toast({
-            title: "Simulation Complete",
-            description: "Successfully ran the page replacement algorithms.",
-          });
         },
-        onError: (error) => {
+        onError: () => {
           toast({
             variant: "destructive",
             title: "Simulation Failed",
-            description: error.error?.error || "An unknown error occurred.",
+            description: "Check your input and try again.",
           });
         },
       }
@@ -59,170 +79,192 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background">
-      <header className="border-b bg-card">
-        <div className="container max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary/10 p-2 rounded-md">
-              <Database className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-semibold tracking-tight leading-none text-foreground">Page Replacement Simulator</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Algorithm Visualization Tool</p>
-            </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="bg-card border-b border-border shadow-xs sticky top-0 z-20">
+        <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <Cpu className="w-4 h-4" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-semibold text-foreground tracking-tight">Page Replacement Simulator</span>
+            <span className="hidden sm:inline text-xs text-muted-foreground font-medium px-2 py-0.5 bg-muted rounded-full">FIFO · LRU · Optimal</span>
           </div>
         </div>
       </header>
 
-      <main className="container max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8">
-          <div className="space-y-6">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-muted-foreground" />
-                  Configuration
-                </CardTitle>
-                <CardDescription>
-                  Set up the memory simulation parameters.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                    <FormField
-                      control={form.control}
-                      name="referenceString"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Reference String</FormLabel>
+      {/* Main layout */}
+      <div className="flex-1 max-w-[1400px] mx-auto w-full px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
+
+        {/* Left panel */}
+        <aside className="flex flex-col gap-4">
+
+          {/* Configuration card */}
+          <div className="bg-card border border-card-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border bg-muted/40">
+              <h2 className="font-semibold text-sm text-foreground tracking-tight">Configuration</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Set simulation parameters</p>
+            </div>
+            <div className="p-5">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+
+                  {/* Reference String */}
+                  <FormField
+                    control={form.control}
+                    name="referenceString"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Reference String
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. 7 0 1 2 0 3 0 4"
+                            data-testid="input-reference-string"
+                            className="font-mono text-sm h-9 bg-background"
+                            {...field}
+                          />
+                        </FormControl>
+                        <p className="text-[11px] text-muted-foreground">Space-separated page numbers</p>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Frames */}
+                  <FormField
+                    control={form.control}
+                    name="frames"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Memory Frames
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={20}
+                            data-testid="input-frames"
+                            className="font-mono text-sm h-9 bg-background w-28"
+                            {...field}
+                          />
+                        </FormControl>
+                        <p className="text-[11px] text-muted-foreground">Between 1 and 20</p>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Algorithm */}
+                  <FormField
+                    control={form.control}
+                    name="algorithm"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Algorithm
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <Input
-                              placeholder="e.g. 7 0 1 2 0 3 0 4"
-                              data-testid="input-reference-string"
-                              className="font-mono text-sm"
-                              {...field}
-                            />
+                            <SelectTrigger data-testid="select-algorithm" className="h-9 bg-background text-sm">
+                              <SelectValue placeholder="Select algorithm" />
+                            </SelectTrigger>
                           </FormControl>
-                          <p className="text-[0.8rem] text-muted-foreground">Space-separated page numbers.</p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          <SelectContent>
+                            {ALGORITHMS.map(algo => (
+                              <SelectItem key={algo.value} value={algo.value}>
+                                <span className="font-medium">{algo.label}</span>
+                                <span className="ml-1.5 text-muted-foreground text-xs">— {algo.sublabel}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="frames"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Memory Frames</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={20}
-                              data-testid="input-frames"
-                              className="font-mono text-sm"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="algorithm"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Algorithm</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-algorithm">
-                                <SelectValue placeholder="Select an algorithm" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="FIFO">First-In, First-Out (FIFO)</SelectItem>
-                              <SelectItem value="LRU">Least Recently Used (LRU)</SelectItem>
-                              <SelectItem value="Optimal">Optimal</SelectItem>
-                              <SelectItem value="ALL">Compare All</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      data-testid="button-run-simulation"
-                      disabled={simulateMutation.isPending}
-                    >
-                      {simulateMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Simulating...
-                        </>
-                      ) : (
-                        "Run Simulation"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <h3 className="font-semibold flex items-center gap-2 mb-2">
-                <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                About Algorithms
-              </h3>
-              <div className="space-y-4 text-sm text-muted-foreground mt-4">
-                <div>
-                  <strong className="text-foreground block mb-1">FIFO (First-In, First-Out)</strong>
-                  <p>Replaces the oldest page in memory. Simple but can suffer from Belady's anomaly.</p>
-                </div>
-                <div>
-                  <strong className="text-foreground block mb-1">LRU (Least Recently Used)</strong>
-                  <p>Replaces the page that has not been used for the longest time. Good approximation of Optimal.</p>
-                </div>
-                <div>
-                  <strong className="text-foreground block mb-1">Optimal</strong>
-                  <p>Replaces the page that will not be used for the longest time in the future. Impossible to implement perfectly in practice.</p>
-                </div>
-              </div>
+                  <Button
+                    type="submit"
+                    className="w-full h-9 font-semibold text-sm shadow-sm mt-2"
+                    data-testid="button-run-simulation"
+                    disabled={simulateMutation.isPending}
+                  >
+                    {simulateMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="mr-2 h-3.5 w-3.5" />
+                        Run Simulation
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </Form>
             </div>
           </div>
 
-          <div className="min-w-0">
-            {!results && !simulateMutation.isPending && (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 border border-dashed rounded-lg bg-muted/30">
-                <div className="bg-background p-4 rounded-full shadow-sm border mb-4">
-                  <Database className="w-8 h-8 text-muted-foreground" />
+          {/* Algorithm info card */}
+          <div className="bg-card border border-card-border rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-border bg-muted/40 flex items-center gap-2">
+              <Info className="w-3.5 h-3.5 text-muted-foreground" />
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">About Algorithms</h3>
+            </div>
+            <div className="p-5 space-y-4">
+              {ALGO_INFO.map((a) => (
+                <div key={a.name} className="flex gap-3">
+                  <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-primary">
+                    {a.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground leading-none mb-1">{a.name}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{a.desc}</p>
+                  </div>
                 </div>
-                <h2 className="text-lg font-semibold text-foreground mb-2">No Simulation Results</h2>
-                <p className="text-muted-foreground max-w-sm">
-                  Configure the parameters on the left and click "Run Simulation" to see how different algorithms manage memory frames over time.
-                </p>
-              </div>
-            )}
-
-            {simulateMutation.isPending && (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 border border-dashed rounded-lg bg-muted/10">
-                <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-                <h2 className="text-lg font-medium text-foreground">Running Simulation...</h2>
-              </div>
-            )}
-
-            {results && !simulateMutation.isPending && (
-              <SimulationResults data={results} />
-            )}
+              ))}
+            </div>
           </div>
-        </div>
-      </main>
+        </aside>
+
+        {/* Right results area */}
+        <main className="min-w-0">
+          {!results && !simulateMutation.isPending && (
+            <div className="flex flex-col items-center justify-center min-h-[420px] border-2 border-dashed border-border rounded-xl bg-card/50 text-center p-10">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Cpu className="w-7 h-7 text-primary" />
+              </div>
+              <h2 className="text-base font-semibold text-foreground mb-2">No Simulation Results</h2>
+              <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
+                Configure the parameters on the left and click "Run Simulation" to see step-by-step memory states.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2 justify-center">
+                {["FIFO", "LRU", "Optimal"].map(algo => (
+                  <span key={algo} className="text-xs font-mono font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+                    {algo}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {simulateMutation.isPending && (
+            <div className="flex flex-col items-center justify-center min-h-[420px] border border-border rounded-xl bg-card text-center p-10">
+              <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+              <p className="text-sm font-medium text-foreground">Running algorithms...</p>
+              <p className="text-xs text-muted-foreground mt-1">Calculating optimal page replacements</p>
+            </div>
+          )}
+
+          {results && !simulateMutation.isPending && (
+            <SimulationResults data={results} />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
