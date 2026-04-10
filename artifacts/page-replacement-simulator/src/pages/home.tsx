@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Play, Cpu, GitBranch, Zap, Info } from "lucide-react";
+import { Loader2, Play, Cpu, GitBranch, Zap, Info, AlertTriangle, RefreshCw } from "lucide-react";
 import { SimulationResults } from "@/components/simulation-results";
 
 const formSchema = z.object({
@@ -46,8 +45,8 @@ const ALGO_INFO = [
 ];
 
 export default function Home() {
-  const { toast } = useToast();
   const [results, setResults] = useState<SimulationResponse | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -61,18 +60,21 @@ export default function Home() {
   const simulateMutation = useSimulate();
 
   function onSubmit(data: FormValues) {
+    setApiError(null);
     simulateMutation.mutate(
       { data },
       {
         onSuccess: (response) => {
           setResults(response);
+          setApiError(null);
         },
-        onError: () => {
-          toast({
-            variant: "destructive",
-            title: "Simulation Failed",
-            description: "Check your input and try again.",
-          });
+        onError: (err) => {
+          const msg =
+            (err as { error?: { error?: string } })?.error?.error ??
+            (err as { message?: string })?.message ??
+            "Could not reach the simulation server. Make sure the backend is running.";
+          setApiError(msg);
+          setResults(null);
         },
       }
     );
@@ -232,8 +234,27 @@ export default function Home() {
         </aside>
 
         {/* Right results area */}
-        <main className="min-w-0">
-          {!results && !simulateMutation.isPending && (
+        <main className="min-w-0 flex flex-col gap-4">
+          {/* Error banner */}
+          {apiError && !simulateMutation.isPending && (
+            <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-4 text-sm">
+              <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-destructive">Simulation Failed</p>
+                <p className="text-destructive/80 mt-0.5 break-words">{apiError}</p>
+              </div>
+              <button
+                onClick={() => setApiError(null)}
+                className="text-destructive/60 hover:text-destructive transition-colors flex-shrink-0"
+                aria-label="Dismiss error"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!results && !simulateMutation.isPending && !apiError && (
             <div className="flex flex-col items-center justify-center min-h-[420px] border-2 border-dashed border-border rounded-xl bg-card/50 text-center p-10">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                 <Cpu className="w-7 h-7 text-primary" />
@@ -252,6 +273,7 @@ export default function Home() {
             </div>
           )}
 
+          {/* Loading state */}
           {simulateMutation.isPending && (
             <div className="flex flex-col items-center justify-center min-h-[420px] border border-border rounded-xl bg-card text-center p-10">
               <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
@@ -260,6 +282,7 @@ export default function Home() {
             </div>
           )}
 
+          {/* Results */}
           {results && !simulateMutation.isPending && (
             <SimulationResults data={results} />
           )}
