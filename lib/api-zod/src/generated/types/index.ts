@@ -6,4 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./algorithmResult";
+export * from "./errorResponse";
 export * from "./healthStatus";
+export * from "./simulationRequest";
+export * from "./simulationRequestAlgorithm";
+export * from "./simulationResponse";
+export * from "./simulationStep";

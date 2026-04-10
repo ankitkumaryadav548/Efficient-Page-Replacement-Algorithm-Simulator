@@ -5,18 +5,26 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ErrorResponse,
+  HealthStatus,
+  SimulationRequest,
+  SimulationResponse,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +107,90 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Simulates FIFO, LRU, Optimal or all algorithms for given reference string and frames
+ * @summary Run page replacement simulation
+ */
+export const getSimulateUrl = () => {
+  return `/api/simulate`;
+};
+
+export const simulate = async (
+  simulationRequest: SimulationRequest,
+  options?: RequestInit,
+): Promise<SimulationResponse> => {
+  return customFetch<SimulationResponse>(getSimulateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(simulationRequest),
+  });
+};
+
+export const getSimulateMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof simulate>>,
+    TError,
+    { data: BodyType<SimulationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof simulate>>,
+  TError,
+  { data: BodyType<SimulationRequest> },
+  TContext
+> => {
+  const mutationKey = ["simulate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof simulate>>,
+    { data: BodyType<SimulationRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return simulate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SimulateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof simulate>>
+>;
+export type SimulateMutationBody = BodyType<SimulationRequest>;
+export type SimulateMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Run page replacement simulation
+ */
+export const useSimulate = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof simulate>>,
+    TError,
+    { data: BodyType<SimulationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof simulate>>,
+  TError,
+  { data: BodyType<SimulationRequest> },
+  TContext
+> => {
+  return useMutation(getSimulateMutationOptions(options));
+};

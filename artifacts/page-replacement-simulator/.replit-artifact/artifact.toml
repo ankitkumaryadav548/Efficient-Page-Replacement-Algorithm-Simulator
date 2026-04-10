@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Page Replacement Simulator"
+version = "1.0.0"
+id = "artifacts/page-replacement-simulator"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21328
+
+[services.development]
+run = "pnpm --filter @workspace/page-replacement-simulator run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/page-replacement-simulator", "run", "build" ]
+publicDir = "artifacts/page-replacement-simulator/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21328"
+BASE_PATH = "/"

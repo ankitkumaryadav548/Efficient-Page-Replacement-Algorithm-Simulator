@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: simulation
+    description: Page replacement algorithm simulation
 paths:
   /healthz:
     get:
@@ -24,6 +26,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /simulate:
+    post:
+      operationId: simulate
+      tags: [simulation]
+      summary: Run page replacement simulation
+      description: Simulates FIFO, LRU, Optimal or all algorithms for given reference string and frames
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationRequest"
+      responses:
+        "200":
+          description: Simulation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +60,101 @@ components:
           type: string
       required:
         - status
-
+    SimulationRequest:
+      type: object
+      properties:
+        referenceString:
+          type: string
+          description: Space-separated page numbers (e.g. "7 0 1 2 0 3 0 4")
+        frames:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Number of memory frames
+        algorithm:
+          type: string
+          enum: [FIFO, LRU, Optimal, ALL]
+          description: Algorithm to use
+      required:
+        - referenceString
+        - frames
+        - algorithm
+    SimulationStep:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Page being referenced
+        frames:
+          type: array
+          items:
+            type: integer
+            nullable: true
+          description: Frame state after this step (null = empty)
+        isFault:
+          type: boolean
+          description: Whether this step caused a page fault
+        replacedPage:
+          type: integer
+          nullable: true
+          description: Page that was replaced (if any)
+      required:
+        - page
+        - frames
+        - isFault
+        - replacedPage
+    AlgorithmResult:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          description: Algorithm name
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulationStep"
+        pageFaults:
+          type: integer
+          description: Total number of page faults
+        pageHits:
+          type: integer
+          description: Total number of page hits
+        hitRatio:
+          type: number
+          format: float
+          description: Hit ratio (0 to 1)
+        faultRatio:
+          type: number
+          format: float
+          description: Fault ratio (0 to 1)
+      required:
+        - algorithm
+        - steps
+        - pageFaults
+        - pageHits
+        - hitRatio
+        - faultRatio
+    SimulationResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlgorithmResult"
+        referenceString:
+          type: array
+          items:
+            type: integer
+        frames:
+          type: integer
+      required:
+        - results
+        - referenceString
+        - frames
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

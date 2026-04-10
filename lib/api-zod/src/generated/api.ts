@@ -14,3 +14,52 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Simulates FIFO, LRU, Optimal or all algorithms for given reference string and frames
+ * @summary Run page replacement simulation
+ */
+export const simulateBodyFramesMax = 20;
+
+export const SimulateBody = zod.object({
+  referenceString: zod
+    .string()
+    .describe('Space-separated page numbers (e.g. \"7 0 1 2 0 3 0 4\")'),
+  frames: zod
+    .number()
+    .min(1)
+    .max(simulateBodyFramesMax)
+    .describe("Number of memory frames"),
+  algorithm: zod
+    .enum(["FIFO", "LRU", "Optimal", "ALL"])
+    .describe("Algorithm to use"),
+});
+
+export const SimulateResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      algorithm: zod.string().describe("Algorithm name"),
+      steps: zod.array(
+        zod.object({
+          page: zod.number().describe("Page being referenced"),
+          frames: zod
+            .array(zod.number().nullable())
+            .describe("Frame state after this step (null = empty)"),
+          isFault: zod
+            .boolean()
+            .describe("Whether this step caused a page fault"),
+          replacedPage: zod
+            .number()
+            .nullable()
+            .describe("Page that was replaced (if any)"),
+        }),
+      ),
+      pageFaults: zod.number().describe("Total number of page faults"),
+      pageHits: zod.number().describe("Total number of page hits"),
+      hitRatio: zod.number().describe("Hit ratio (0 to 1)"),
+      faultRatio: zod.number().describe("Fault ratio (0 to 1)"),
+    }),
+  ),
+  referenceString: zod.array(zod.number()),
+  frames: zod.number(),
+});
