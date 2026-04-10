@@ -1,0 +1,8 @@
+com/simulator/pageReplacement/model/AlgorithmResult.class
+com/simulator/pageReplacement/PageReplacementApplication.class
+com/simulator/pageReplacement/model/SimulationRequest.class
+com/simulator/pageReplacement/controller/SimulationController.class
+com/simulator/pageReplacement/model/SimulationStep.class
+com/simulator/pageReplacement/model/SimulationResponse.class
+com/simulator/pageReplacement/service/PageReplacementService.class
+com/simulator/pageReplacement/controller/GlobalExceptionHandler.class
