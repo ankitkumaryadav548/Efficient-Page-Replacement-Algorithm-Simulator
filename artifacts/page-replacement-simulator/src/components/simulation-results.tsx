@@ -1,8 +1,19 @@
+import { useRef } from "react";
 import type { AlgorithmResult, SimulationResponse } from "@workspace/api-client-react";
+import { Bar } from "react-chartjs-2";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, Cell, LabelList,
-} from "recharts";
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  type ChartOptions,
+  type ChartData,
+} from "chart.js";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 interface SimulationResultsProps {
   data: SimulationResponse;
@@ -13,90 +24,132 @@ const ALGO_COLORS = {
   LRU:     { bar: "hsl(173 58% 39%)", bg: "hsl(173 58% 39% / 0.08)", border: "hsl(173 58% 39% / 0.25)", text: "hsl(173 58% 30%)" },
   Optimal: { bar: "hsl(35 91% 55%)",  bg: "hsl(35 91% 55% / 0.08)",  border: "hsl(35 91% 55% / 0.25)",  text: "hsl(35 91% 35%)"  },
 };
-const FALLBACK_COLORS = ["hsl(243 75% 59%)", "hsl(173 58% 39%)", "hsl(35 91% 55%)"];
+// Raw color values for Chart.js (CSS variables don't work inside canvas context)
+const BAR_COLORS = {
+  FIFO:    { faults: "rgba(99,  82, 220, 0.85)", hits: "rgba(99,  82, 220, 0.30)" },
+  LRU:     { faults: "rgba(31, 143, 121, 0.85)", hits: "rgba(31, 143, 121, 0.30)" },
+  Optimal: { faults: "rgba(234,147,  30, 0.85)", hits: "rgba(234,147,  30, 0.30)" },
+};
+const FALLBACK_BAR = { faults: "rgba(99,82,220,0.85)", hits: "rgba(99,82,220,0.30)" };
 
-function getColor(algo: string, idx: number) {
-  return ALGO_COLORS[algo as keyof typeof ALGO_COLORS]?.bar ?? FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+function FaultComparisonChart({ results }: { results: SimulationResponse["results"] }) {
+  const chartRef = useRef<ChartJS<"bar">>(null);
+
+  const labels = results.map((r) => r.algorithm);
+
+  const chartData: ChartData<"bar"> = {
+    labels,
+    datasets: [
+      {
+        label: "Page Faults",
+        data: results.map((r) => r.pageFaults),
+        backgroundColor: results.map((r) => (BAR_COLORS[r.algorithm as keyof typeof BAR_COLORS] ?? FALLBACK_BAR).faults),
+        borderColor:      results.map((r) => (BAR_COLORS[r.algorithm as keyof typeof BAR_COLORS] ?? FALLBACK_BAR).faults.replace("0.85", "1")),
+        borderWidth: 1.5,
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 56,
+      },
+      {
+        label: "Page Hits",
+        data: results.map((r) => r.pageHits),
+        backgroundColor: results.map((r) => (BAR_COLORS[r.algorithm as keyof typeof BAR_COLORS] ?? FALLBACK_BAR).hits),
+        borderColor:      results.map((r) => (BAR_COLORS[r.algorithm as keyof typeof BAR_COLORS] ?? FALLBACK_BAR).hits.replace("0.30", "0.6")),
+        borderWidth: 1.5,
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 56,
+      },
+    ],
+  };
+
+  const options: ChartOptions<"bar"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 500, easing: "easeInOutQuart" },
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: {
+          font: { family: "Inter, sans-serif", size: 12 },
+          usePointStyle: true,
+          pointStyle: "rectRounded",
+          pointStyleWidth: 10,
+          padding: 20,
+          color: "#64748b",
+        },
+      },
+      tooltip: {
+        backgroundColor: "#ffffff",
+        titleColor: "#0f172a",
+        bodyColor: "#475569",
+        borderColor: "#e2e8f0",
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 8,
+        boxPadding: 4,
+        callbacks: {
+          title: (items) => `${items[0].label} Algorithm`,
+          label: (ctx) => `  ${ctx.dataset.label}: ${ctx.parsed.y}`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: {
+          font: { family: "Inter, sans-serif", size: 12, weight: 600 },
+          color: "#475569",
+        },
+      },
+      y: {
+        beginAtZero: true,
+        border: { display: false },
+        grid: { color: "rgba(0,0,0,0.06)" },
+        ticks: {
+          font: { family: "Inter, sans-serif", size: 11 },
+          color: "#94a3b8",
+          stepSize: 1,
+        },
+      },
+    },
+  };
+
+  // Use a key so Chart.js remounts (with fresh animation) when the algorithm set changes
+  const chartKey = labels.join("-");
+
+  return (
+    <div className="h-[280px]" data-testid="chart-performance">
+      <Bar key={chartKey} ref={chartRef} data={chartData} options={options} />
+    </div>
+  );
 }
 
 export function SimulationResults({ data }: SimulationResultsProps) {
-  const chartData = data.results.map((r) => ({
-    name: r.algorithm,
-    Faults: r.pageFaults,
-    Hits: r.pageHits,
-  }));
-
-  const maxValue = Math.max(...data.results.map(r => r.pageFaults + r.pageHits));
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-400">
 
-      {/* Performance chart */}
+      {/* Chart.js Performance Chart */}
       <div className="bg-card border border-card-border rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-sm text-foreground">Performance Comparison</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Page faults vs. hits per algorithm</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Page faults and hits per algorithm</p>
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm inline-block bg-destructive/70" />
+              <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "rgba(99,82,220,0.85)" }} />
               Faults
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm inline-block bg-emerald-500/70" />
+              <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "rgba(99,82,220,0.30)" }} />
               Hits
             </span>
           </div>
         </div>
         <div className="p-5">
-          <div className="h-[260px]" data-testid="chart-performance">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 16, right: 16, left: 0, bottom: 4 }} barGap={4} barCategoryGap="32%">
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12, fontWeight: 500, fontFamily: "Inter, sans-serif" }}
-                  dy={8}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontFamily: "Inter, sans-serif" }}
-                  dx={-4}
-                  domain={[0, maxValue + 1]}
-                />
-                <RechartsTooltip
-                  cursor={{ fill: "hsl(var(--muted) / 0.4)", radius: 4 }}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    borderColor: "hsl(var(--border))",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    fontSize: "12px",
-                    fontFamily: "Inter, sans-serif",
-                    padding: "8px 12px",
-                  }}
-                  labelStyle={{ fontWeight: 600, marginBottom: 4 }}
-                />
-                <Bar dataKey="Faults" radius={[5, 5, 0, 0]} maxBarSize={52}>
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`fault-${index}`}
-                      fill={getColor(entry.name, index)}
-                      fillOpacity={0.85}
-                    />
-                  ))}
-                  <LabelList dataKey="Faults" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "hsl(var(--muted-foreground))", fontFamily: "Inter" }} />
-                </Bar>
-                <Bar dataKey="Hits" radius={[5, 5, 0, 0]} maxBarSize={52} fill="hsl(160 60% 50%)" fillOpacity={0.5}>
-                  <LabelList dataKey="Hits" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "hsl(var(--muted-foreground))", fontFamily: "Inter" }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <FaultComparisonChart results={data.results} />
         </div>
       </div>
 
