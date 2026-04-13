@@ -208,16 +208,68 @@ export function SimulationResults({ data }: SimulationResultsProps) {
   );
 }
 
+function FrameCell({
+  value,
+  isNewlyLoaded,
+  isHitTarget,
+  accentText,
+  accentBorder,
+}: {
+  value: number | null;
+  isNewlyLoaded: boolean;
+  isHitTarget: boolean;
+  accentText: string;
+  accentBorder: string;
+}) {
+  if (value === null) {
+    return (
+      <div className="w-9 h-9 mx-auto rounded-lg border-2 border-dashed border-border/50 flex items-center justify-center">
+        <span className="text-muted-foreground/30 text-xs select-none">·</span>
+      </div>
+    );
+  }
+  if (isNewlyLoaded) {
+    return (
+      <div
+        className="w-9 h-9 mx-auto rounded-lg border-2 flex items-center justify-center relative"
+        style={{ borderColor: accentBorder, backgroundColor: accentBorder }}
+      >
+        <span className="font-mono font-bold text-sm" style={{ color: accentText }}>
+          {value}
+        </span>
+        {/* "new" dot */}
+        <span
+          className="absolute -top-1 -right-1 w-2 h-2 rounded-full border border-background"
+          style={{ backgroundColor: accentText }}
+        />
+      </div>
+    );
+  }
+  if (isHitTarget) {
+    return (
+      <div className="w-9 h-9 mx-auto rounded-lg border-2 border-emerald-300 bg-emerald-50 flex items-center justify-center relative">
+        <span className="font-mono font-bold text-sm text-emerald-700">{value}</span>
+        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 border border-background" />
+      </div>
+    );
+  }
+  return (
+    <div className="w-9 h-9 mx-auto rounded-lg border border-border bg-muted/40 flex items-center justify-center">
+      <span className="font-mono font-medium text-sm text-foreground">{value}</span>
+    </div>
+  );
+}
+
 function AlgorithmTable({ result, totalFrames }: { result: AlgorithmResult; totalFrames: number }) {
   const frameIndices = Array.from({ length: totalFrames }, (_, i) => i);
   const colors = ALGO_COLORS[result.algorithm as keyof typeof ALGO_COLORS];
-  const accentBg = colors?.bg ?? "hsl(var(--muted) / 0.5)";
+  const accentBg     = colors?.bg     ?? "hsl(var(--muted) / 0.5)";
   const accentBorder = colors?.border ?? "hsl(var(--border))";
-  const accentText = colors?.text ?? "hsl(var(--primary))";
+  const accentText   = colors?.text   ?? "hsl(var(--primary))";
 
   const faultCount = result.pageFaults;
-  const hitCount = result.pageHits;
-  const total = faultCount + hitCount;
+  const hitCount   = result.pageHits;
+  const total      = faultCount + hitCount;
 
   return (
     <div
@@ -225,14 +277,15 @@ function AlgorithmTable({ result, totalFrames }: { result: AlgorithmResult; tota
       style={{ borderColor: accentBorder }}
       data-testid={`results-${result.algorithm}`}
     >
-      {/* Table header */}
+      {/* Card header */}
       <div className="px-5 py-3.5 border-b" style={{ background: accentBg, borderColor: accentBorder }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h4 className="font-bold text-base" style={{ color: accentText }}>{result.algorithm} Algorithm</h4>
+            <h4 className="font-bold text-base" style={{ color: accentText }}>
+              {result.algorithm} Algorithm
+            </h4>
             <p className="text-xs text-muted-foreground mt-0.5">Step-by-step memory frame states</p>
           </div>
-          {/* Compact stats */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 bg-destructive/10 text-destructive px-2.5 py-1 rounded-lg text-xs font-semibold border border-destructive/20">
               <span className="font-mono text-sm font-bold">{faultCount}</span>
@@ -242,94 +295,139 @@ function AlgorithmTable({ result, totalFrames }: { result: AlgorithmResult; tota
               <span className="font-mono text-sm font-bold">{hitCount}</span>
               <span>hits</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-muted/60 text-muted-foreground px-2.5 py-1 rounded-lg text-xs font-semibold border border-border"
-              data-testid={`text-ratio-${result.algorithm}`}>
-              <span className="font-mono text-sm font-bold text-foreground">{(result.hitRatio * 100).toFixed(1)}%</span>
+            <div
+              className="flex items-center gap-1.5 bg-muted/60 text-muted-foreground px-2.5 py-1 rounded-lg text-xs font-semibold border border-border"
+              data-testid={`text-ratio-${result.algorithm}`}
+            >
+              <span className="font-mono text-sm font-bold text-foreground">
+                {(result.hitRatio * 100).toFixed(1)}%
+              </span>
               <span>hit rate</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Scrollable table */}
+      {/* Scrollable step table */}
       <div className="overflow-x-auto results-scroll">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-muted/30">
-              <th className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2.5 w-12 border-r border-border">#</th>
-              <th className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2.5 w-14 border-r border-border">Page</th>
-              <th className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2.5 w-20 border-r border-border">Status</th>
-              {frameIndices.map(i => (
-                <th key={i} className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2.5 border-r border-border last:border-r-0 min-w-[52px]">
-                  F{i}
+            <tr className="border-b border-border bg-muted/20">
+              {/* Step # */}
+              <th className="w-10 px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-r border-border">
+                #
+              </th>
+              {/* Reference page */}
+              <th className="w-14 px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-r border-border">
+                Ref
+              </th>
+              {/* Status */}
+              <th className="w-20 px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-r border-border">
+                Result
+              </th>
+              {/* Frame columns */}
+              {frameIndices.map((i) => (
+                <th
+                  key={i}
+                  className="px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-r border-border last:border-r-0 min-w-[68px]"
+                >
+                  Frame {i}
                 </th>
               ))}
-              <th className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2.5 border-l border-border">Out</th>
+              {/* Evicted */}
+              <th className="w-16 px-3 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-l border-border">
+                Out
+              </th>
             </tr>
           </thead>
-          <tbody className="font-mono divide-y divide-border">
+          <tbody>
             {result.steps.map((step, idx) => {
               const isFault = step.isFault;
+
               return (
                 <tr
                   key={idx}
-                  className={`transition-colors ${isFault ? "bg-red-50/60 hover:bg-red-50" : "hover:bg-muted/30"}`}
-                  style={isFault ? { boxShadow: "inset 3px 0 0 hsl(0 84% 60%)" } : {}}
+                  className={`border-b border-border/60 transition-colors group ${
+                    isFault
+                      ? "bg-red-50 hover:bg-red-100/70"
+                      : "bg-card hover:bg-emerald-50/40"
+                  }`}
+                  style={
+                    isFault
+                      ? { boxShadow: "inset 4px 0 0 #ef4444" }
+                      : { boxShadow: "inset 4px 0 0 transparent" }
+                  }
                   data-testid={`row-${result.algorithm}-step-${idx + 1}`}
                 >
-                  {/* Step # */}
-                  <td className="text-center text-muted-foreground text-xs py-2 px-3 border-r border-border">{idx + 1}</td>
+                  {/* Step number */}
+                  <td className="px-3 py-2.5 text-center border-r border-border/60">
+                    <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
+                      {idx + 1}
+                    </span>
+                  </td>
 
-                  {/* Page */}
-                  <td className="text-center py-2 px-3 border-r border-border">
-                    <span className="font-bold text-foreground text-sm">{step.page}</span>
+                  {/* Reference page chip */}
+                  <td className="px-3 py-2.5 text-center border-r border-border/60">
+                    <span
+                      className={`inline-flex items-center justify-center w-7 h-7 rounded-md font-mono font-bold text-sm ${
+                        isFault
+                          ? "bg-red-100 text-red-700 ring-1 ring-red-300"
+                          : "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                      }`}
+                    >
+                      {step.page}
+                    </span>
                   </td>
 
                   {/* Status badge */}
-                  <td className="text-center py-2 px-3 border-r border-border">
+                  <td className="px-3 py-2.5 text-center border-r border-border/60">
                     {isFault ? (
                       <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-destructive/15 text-destructive border border-destructive/25"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200"
                         data-testid={`badge-fault-${idx + 1}`}
                       >
-                        FAULT
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+                        Fault
                       </span>
                     ) : (
                       <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200"
                         data-testid={`badge-hit-${idx + 1}`}
                       >
-                        HIT
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                        Hit
                       </span>
                     )}
                   </td>
 
                   {/* Frame cells */}
                   {step.frames.map((frame, fIdx) => {
-                    const isNewPage = frame === step.page && isFault;
+                    const isNewlyLoaded = isFault && frame === step.page;
+                    const isHitTarget   = !isFault && frame === step.page;
                     return (
                       <td
                         key={fIdx}
-                        className={`text-center py-2 px-3 border-r border-border last:border-r-0 text-sm transition-all ${
-                          frame === null
-                            ? "text-muted-foreground/30"
-                            : isNewPage
-                            ? "font-bold"
-                            : "font-medium text-foreground"
-                        }`}
-                        style={isNewPage ? { color: accentText } : undefined}
+                        className="px-2 py-2.5 text-center border-r border-border/60 last:border-r-0"
                       >
-                        {frame === null ? "—" : frame}
+                        <FrameCell
+                          value={frame}
+                          isNewlyLoaded={isNewlyLoaded}
+                          isHitTarget={isHitTarget}
+                          accentText={accentText}
+                          accentBorder={accentBorder}
+                        />
                       </td>
                     );
                   })}
 
-                  {/* Replaced page */}
-                  <td className="text-center py-2 px-3 border-l border-border text-muted-foreground text-xs">
+                  {/* Evicted page */}
+                  <td className="px-3 py-2.5 text-center border-l border-border/60">
                     {step.replacedPage !== null ? (
-                      <span className="font-mono font-semibold text-destructive/70">{step.replacedPage}</span>
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-md font-mono font-semibold text-sm bg-red-50 text-red-400 ring-1 ring-red-200 line-through">
+                        {step.replacedPage}
+                      </span>
                     ) : (
-                      <span className="text-muted-foreground/30">—</span>
+                      <span className="text-muted-foreground/25 text-sm select-none">—</span>
                     )}
                   </td>
                 </tr>
@@ -339,13 +437,37 @@ function AlgorithmTable({ result, totalFrames }: { result: AlgorithmResult; tota
         </table>
       </div>
 
-      {/* Footer summary bar */}
-      <div className="px-5 py-2.5 border-t border-border bg-muted/20 flex items-center gap-3 text-xs text-muted-foreground">
-        <span>{total} references total</span>
-        <span>·</span>
-        <span className="text-destructive font-medium">{faultCount} faults ({(result.faultRatio * 100).toFixed(1)}%)</span>
-        <span>·</span>
-        <span className="text-emerald-600 font-medium">{hitCount} hits ({(result.hitRatio * 100).toFixed(1)}%)</span>
+      {/* Legend + footer */}
+      <div className="px-5 py-3 border-t border-border bg-muted/10 flex flex-wrap items-center justify-between gap-3">
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded border-2 border-dashed border-border/50 inline-block" />
+            Empty slot
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded border border-border bg-muted/40 inline-block" />
+            Occupied
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded border-2 bg-red-50 border-red-300 inline-block" />
+            Newly loaded
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3.5 h-3.5 rounded border-2 bg-emerald-50 border-emerald-300 inline-block" />
+            Cache hit
+          </span>
+        </div>
+        {/* Totals */}
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-muted-foreground">{total} refs</span>
+          <span className="text-red-600 font-semibold">
+            {faultCount} faults ({(result.faultRatio * 100).toFixed(1)}%)
+          </span>
+          <span className="text-emerald-600 font-semibold">
+            {hitCount} hits ({(result.hitRatio * 100).toFixed(1)}%)
+          </span>
+        </div>
       </div>
     </div>
   );
