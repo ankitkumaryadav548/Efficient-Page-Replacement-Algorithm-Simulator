@@ -12,9 +12,41 @@ import { Loader2, Play, Cpu, GitBranch, Zap, Info, AlertTriangle, RefreshCw } fr
 import { SimulationResults } from "@/components/simulation-results";
 
 const formSchema = z.object({
-  referenceString: z.string().min(1, "Reference string is required").regex(/^(\d+\s)*\d+$/, "Must be space-separated numbers"),
-  frames: z.coerce.number().min(1, "Min 1 frame").max(20, "Max 20 frames"),
-  algorithm: z.enum(["FIFO", "LRU", "Optimal", "ALL"]),
+  // Normalise whitespace before validating so "7  0  1" and " 7 0 1 " both work
+  referenceString: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ") : v),
+    z.string()
+      .min(1, "Reference string cannot be empty")
+      .regex(
+        /^\d+( \d+)*$/,
+        "Enter space-separated whole numbers only — e.g. 7 0 1 2 0 3 0 4",
+      )
+      .refine(
+        (s) => s.split(" ").length >= 1,
+        "Enter at least one page number",
+      )
+      .refine(
+        (s) => s.split(" ").length <= 50,
+        "Maximum 50 page references allowed",
+      )
+      .refine(
+        (s) => s.split(" ").every((n) => parseInt(n, 10) <= 255),
+        "Each page number must be between 0 and 255",
+      ),
+  ),
+
+  frames: z.coerce
+    .number({
+      invalid_type_error: "Frames must be a number",
+      required_error: "Number of frames is required",
+    })
+    .int("Frames must be a whole number — no decimals")
+    .min(1, "At least 1 frame is required")
+    .max(20, "Maximum 20 frames allowed"),
+
+  algorithm: z.enum(["FIFO", "LRU", "Optimal", "ALL"], {
+    errorMap: () => ({ message: "Please select a valid algorithm" }),
+  }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,10 +101,23 @@ export default function Home() {
           setApiError(null);
         },
         onError: (err) => {
-          const msg =
-            (err as { error?: { error?: string } })?.error?.error ??
-            (err as { message?: string })?.message ??
-            "Could not reach the simulation server. Make sure the backend is running.";
+          // ApiError shape: { status: number, data: { error?: string }, message: string }
+          const apiErr = err as { status?: number; data?: { error?: string }; message?: string };
+          const serverMsg = apiErr.data?.error;
+          const status    = apiErr.status ?? 0;
+
+          let msg: string;
+          if (serverMsg) {
+            // Server returned a structured validation / logic error — show it as-is
+            msg = serverMsg;
+          } else if (status === 0 || !status) {
+            msg = "Could not reach the simulation server. Make sure the backend is running.";
+          } else if (status >= 500) {
+            msg = "The server encountered an error. Please try again in a moment.";
+          } else {
+            msg = apiErr.message ?? "An unexpected error occurred. Please try again.";
+          }
+
           setApiError(msg);
           setResults(null);
         },

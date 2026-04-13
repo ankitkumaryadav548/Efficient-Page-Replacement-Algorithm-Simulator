@@ -1,7 +1,7 @@
 /home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/PageReplacementApplication.java
 /home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/controller/SimulationController.java
-/home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/model/SimulationRequest.java
 /home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/model/SimulationStep.java
+/home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/model/SimulationRequest.java
 /home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/controller/GlobalExceptionHandler.java
 /home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/service/PageReplacementService.java
 /home/runner/workspace/java-backend/src/main/java/com/simulator/pageReplacement/model/AlgorithmResult.java
