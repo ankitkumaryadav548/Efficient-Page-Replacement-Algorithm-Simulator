@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { AlgorithmResult, SimulationResponse } from "@workspace/api-client-react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -17,6 +17,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 interface SimulationResultsProps {
   data: SimulationResponse;
+  runId: number;
 }
 
 const ALGO_COLORS = {
@@ -126,7 +127,7 @@ function FaultComparisonChart({ results }: { results: SimulationResponse["result
   );
 }
 
-export function SimulationResults({ data }: SimulationResultsProps) {
+export function SimulationResults({ data, runId }: SimulationResultsProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-400">
 

@@ -235,6 +235,34 @@
   }
 }
 
+/* ─── Step-by-step table animations ──────────────────────────────────────── */
+
+/* Rows slide up and fade in */
+@keyframes rowSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Active cursor row pulses softly while highlighted */
+@keyframes activeRowPulse {
+  0%, 100% { background-color: rgba(234, 179, 8, 0.12); }
+  50%       { background-color: rgba(234, 179, 8, 0.26); }
+}
+
+/* Loading bar grows from the bottom */
+@keyframes barGrow {
+  from { transform: scaleY(0); opacity: 0.3; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+/* ─── Smooth scrollbar for results area ───────────────────────────────────── */
+
 /* Smooth scrollbar for results area */
 .results-scroll {
   scrollbar-width: thin;
