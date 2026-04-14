@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "cd artifacts/page-replacement-simulator && vite build --config vite.config.ts",
+  "buildCommand": "cd artifacts/page-replacement-simulator && npm run build",
   "outputDirectory": "artifacts/page-replacement-simulator/dist/public",
-  "installCommand": "pnpm install",
+  "installCommand": "npm install",
   "framework": null
 }
