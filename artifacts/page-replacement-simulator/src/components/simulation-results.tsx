@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import type { AlgorithmResult, SimulationResponse } from "@workspace/api-client-react";
+import type { AlgorithmResult, SimulationResponse } from "../lib/api-client";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
